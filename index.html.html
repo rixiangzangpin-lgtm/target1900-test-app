@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ターゲット1900 英単語テストアプリ</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center text-blue-600 mb-8">
+            <i class="fas fa-book mr-3"></i>ターゲット1900 英単語テストアプリ
+        </h1>
+
+        <!-- ファイル管理画面 -->
+        <div id="fileManagementScreen" class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-semibold mb-4">
+                    <i class="fas fa-folder-open mr-2"></i>ファイル管理
+                </h2>
+                
+                <!-- 新しいファイルのアップロード -->
+                <div class="mb-6 p-4 border-2 border-dashed border-gray-300 rounded-lg">
+                    <div class="text-center">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600 mb-4">新しいExcelファイル(.xlsx)をアップロード</p>
+                        <input type="file" id="fileInput" accept=".xlsx" class="hidden">
+                        <label for="fileInput" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded cursor-pointer inline-block">
+                            <i class="fas fa-plus mr-2"></i>ファイルを選択
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 保存済みファイル一覧 -->
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold mb-3">
+                        <i class="fas fa-list mr-2"></i>保存済みファイル
+                    </h3>
+                    <div id="savedFilesList" class="space-y-2">
+                        <!-- 動的に生成される -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- テスト設定画面 -->
+        <div id="testSettingsScreen" class="max-w-2xl mx-auto hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold">
+                        <i class="fas fa-cog mr-2"></i>テスト設定
+                    </h2>
+                    <button onclick="backToFileManagement()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-arrow-left mr-2"></i>戻る
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">選択中のファイル</label>
+                        <p id="selectedFileName" class="text-lg font-semibold text-blue-600"></p>
+                        <p id="totalWordsCount" class="text-sm text-gray-500"></p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="startRange" class="block text-sm font-medium text-gray-700 mb-2">開始番号</label>
+                            <input type="number" id="startRange" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" value="1">
+                        </div>
+                        <div>
+                            <label for="endRange" class="block text-sm font-medium text-gray-700 mb-2">終了番号</label>
+                            <input type="number" id="endRange" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" value="100">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="questionCount" class="block text-sm font-medium text-gray-700 mb-2">問題数</label>
+                        <input type="number" id="questionCount" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" min="1" value="25">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">出題順序</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="questionOrder" value="sequential" class="mr-2" checked>
+                                <span>順番通り</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="questionOrder" value="random" class="mr-2">
+                                <span>ランダム</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button onclick="startTest()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg font-semibold">
+                        <i class="fas fa-play mr-2"></i>テスト開始
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- テスト画面 -->
+        <div id="testScreen" class="max-w-2xl mx-auto hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div class="text-sm text-gray-500">
+                        問題 <span id="currentQuestionNumber"></span> / <span id="totalQuestions"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mx-4">
+                        <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300"></div>
+                    </div>
+                    <button onclick="endTest()" class="text-red-500 hover:text-red-700 text-sm">
+                        <i class="fas fa-times mr-1"></i>終了
+                    </button>
+                </div>
+
+                <div class="text-center">
+                    <div class="mb-8">
+                        <p class="text-sm text-gray-500 mb-2">英単語</p>
+                        <h3 id="currentWord" class="text-4xl font-bold text-blue-600 mb-6"></h3>
+                    </div>
+
+                    <div id="showAnswerSection">
+                        <button onclick="showAnswer()" class="bg-blue-500 hover:bg-blue-600 text-white py-3 px-8 rounded-lg font-semibold">
+                            <i class="fas fa-eye mr-2"></i>答えを見る
+                        </button>
+                    </div>
+
+                    <div id="answerSection" class="hidden">
+                        <div class="mb-6">
+                            <p class="text-sm text-gray-500 mb-2">日本語の意味</p>
+                            <p id="currentMeaning" class="text-2xl font-semibold text-green-600 mb-6"></p>
+                        </div>
+
+                        <div class="space-x-4">
+                            <button onclick="markAnswer(true)" class="bg-green-500 hover:bg-green-600 text-white py-2 px-6 rounded-lg">
+                                <i class="fas fa-check mr-2"></i>正解
+                            </button>
+                            <button onclick="markAnswer(false)" class="bg-red-500 hover:bg-red-600 text-white py-2 px-6 rounded-lg">
+                                <i class="fas fa-times mr-2"></i>不正解
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結果画面 -->
+        <div id="resultScreen" class="max-w-2xl mx-auto hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold mb-6">
+                        <i class="fas fa-flag-checkered mr-2"></i>テスト結果
+                    </h2>
+
+                    <div class="mb-8">
+                        <div class="text-6xl font-bold mb-4" id="scoreDisplay"></div>
+                        <p class="text-xl text-gray-600" id="scoreText"></p>
+                        <p class="text-lg text-gray-500 mt-2" id="percentageText"></p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <button onclick="restartWithSameSettings()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold">
+                            <i class="fas fa-redo mr-2"></i>同じ設定でもう一度
+                        </button>
+                        <button onclick="backToSettings()" class="w-full bg-gray-500 hover:bg-gray-600 text-white py-3 px-6 rounded-lg font-semibold">
+                            <i class="fas fa-cog mr-2"></i>設定変更
+                        </button>
+                        <button onclick="backToFileManagement()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg font-semibold">
+                            <i class="fas fa-home mr-2"></i>ファイル管理に戻る
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let savedFiles = JSON.parse(localStorage.getItem('target1900Files') || '{}');
+        let currentFileData = null;
+        let currentFileName = '';
+        let testQuestions = [];
+        let currentQuestionIndex = 0;
+        let correctAnswers = 0;
+        let testSettings = {};
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSavedFilesList();
+            setupFileInput();
+        });
+
+        function setupFileInput() {
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    readExcelFile(file);
+                }
+            });
+        }
+
+        function readExcelFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                    
+                    // データの検証とフォーマット
+                    const formattedData = [];
+                    for (let i = 0; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row.length >= 3 && row[0] && row[1] && row[2]) {
+                            formattedData.push({
+                                number: parseInt(row[0]),
+                                word: row[1].toString().trim(),
+                                meaning: row[2].toString().trim()
+                            });
+                        }
+                    }
+
+                    if (formattedData.length === 0) {
+                        alert('有効なデータが見つかりません。ファイル形式を確認してください。\n（A列：問題番号、B列：英単語、C列：日本語の意味）');
+                        return;
+                    }
+
+                    // ファイルを保存
+                    const fileName = file.name.replace(/\.[^/.]+$/, "");
+                    savedFiles[fileName] = {
+                        data: formattedData,
+                        uploadDate: new Date().toISOString(),
+                        totalWords: formattedData.length
+                    };
+                    localStorage.setItem('target1900Files', JSON.stringify(savedFiles));
+                    
+                    updateSavedFilesList();
+                    alert(`ファイル「${fileName}」を保存しました。（${formattedData.length}語）`);
+                    
+                    // ファイル入力をリセット
+                    document.getElementById('fileInput').value = '';
+                    
+                } catch (error) {
+                    alert('ファイルの読み込みに失敗しました。正しいExcelファイル(.xlsx)を選択してください。');
+                    console.error('Excel reading error:', error);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updateSavedFilesList() {
+            const listContainer = document.getElementById('savedFilesList');
+            listContainer.innerHTML = '';
+
+            if (Object.keys(savedFiles).length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500 text-center py-4">保存されたファイルがありません</p>';
+                return;
+            }
+
+            for (const [fileName, fileInfo] of Object.entries(savedFiles)) {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50';
+                fileDiv.innerHTML = `
+                    <div>
+                        <h4 class="font-semibold">${fileName}</h4>
+                        <p class="text-sm text-gray-500">${fileInfo.totalWords}語 | ${new Date(fileInfo.uploadDate).toLocaleDateString('ja-JP')}</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="selectFile('${fileName}')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
+                            <i class="fas fa-play mr-1"></i>使用
+                        </button>
+                        <button onclick="deleteFile('${fileName}')" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm">
+                            <i class="fas fa-trash mr-1"></i>削除
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(fileDiv);
+            }
+        }
+
+        function selectFile(fileName) {
+            currentFileName = fileName;
+            currentFileData = savedFiles[fileName].data;
+            
+            document.getElementById('selectedFileName').textContent = fileName;
+            document.getElementById('totalWordsCount').textContent = `総単語数: ${currentFileData.length}語`;
+            
+            // 範囲の最大値を設定
+            const maxNumber = Math.max(...currentFileData.map(item => item.number));
+            document.getElementById('endRange').max = maxNumber;
+            document.getElementById('endRange').value = Math.min(100, maxNumber);
+            document.getElementById('startRange').max = maxNumber;
+            
+            showScreen('testSettingsScreen');
+        }
+
+        function deleteFile(fileName) {
+            if (confirm(`ファイル「${fileName}」を削除しますか？`)) {
+                delete savedFiles[fileName];
+                localStorage.setItem('target1900Files', JSON.stringify(savedFiles));
+                updateSavedFilesList();
+            }
+        }
+
+        function startTest() {
+            const startRange = parseInt(document.getElementById('startRange').value);
+            const endRange = parseInt(document.getElementById('endRange').value);
+            const questionCount = parseInt(document.getElementById('questionCount').value);
+            const questionOrder = document.querySelector('input[name="questionOrder"]:checked').value;
+
+            if (startRange > endRange) {
+                alert('開始番号は終了番号以下にしてください。');
+                return;
+            }
+
+            // 範囲内の単語を抽出
+            const rangeWords = currentFileData.filter(item => 
+                item.number >= startRange && item.number <= endRange
+            );
+
+            if (rangeWords.length === 0) {
+                alert('指定された範囲に単語が見つかりません。');
+                return;
+            }
+
+            if (questionCount > rangeWords.length) {
+                alert(`問題数は${rangeWords.length}問以下にしてください。`);
+                return;
+            }
+
+            // テスト設定を保存
+            testSettings = {
+                startRange,
+                endRange,
+                questionCount,
+                questionOrder
+            };
+
+            // 問題を準備
+            if (questionOrder === 'random') {
+                testQuestions = shuffleArray([...rangeWords]).slice(0, questionCount);
+            } else {
+                testQuestions = rangeWords.slice(0, questionCount);
+            }
+
+            currentQuestionIndex = 0;
+            correctAnswers = 0;
+
+            showScreen('testScreen');
+            showQuestion();
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function showQuestion() {
+            const question = testQuestions[currentQuestionIndex];
+            
+            document.getElementById('currentQuestionNumber').textContent = currentQuestionIndex + 1;
+            document.getElementById('totalQuestions').textContent = testQuestions.length;
+            document.getElementById('currentWord').textContent = question.word;
+            document.getElementById('currentMeaning').textContent = question.meaning;
+            
+            // プログレスバーを更新
+            const progress = ((currentQuestionIndex + 1) / testQuestions.length) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            // 答えセクションを隠す
+            document.getElementById('showAnswerSection').classList.remove('hidden');
+            document.getElementById('answerSection').classList.add('hidden');
+        }
+
+        function showAnswer() {
+            document.getElementById('showAnswerSection').classList.add('hidden');
+            document.getElementById('answerSection').classList.remove('hidden');
+        }
+
+        function markAnswer(isCorrect) {
+            if (isCorrect) {
+                correctAnswers++;
+            }
+
+            currentQuestionIndex++;
+            
+            if (currentQuestionIndex >= testQuestions.length) {
+                showResults();
+            } else {
+                showQuestion();
+            }
+        }
+
+        function showResults() {
+            const totalQuestions = testQuestions.length;
+            const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+            
+            document.getElementById('scoreDisplay').textContent = `${correctAnswers}/${totalQuestions}`;
+            document.getElementById('scoreText').textContent = `${correctAnswers}問正解`;
+            document.getElementById('percentageText').textContent = `正答率: ${percentage}%`;
+            
+            showScreen('resultScreen');
+        }
+
+        function restartWithSameSettings() {
+            startTest();
+        }
+
+        function backToSettings() {
+            showScreen('testSettingsScreen');
+        }
+
+        function backToFileManagement() {
+            showScreen('fileManagementScreen');
+        }
+
+        function endTest() {
+            if (confirm('テストを終了しますか？')) {
+                showResults();
+            }
+        }
+
+        function showScreen(screenId) {
+            const screens = ['fileManagementScreen', 'testSettingsScreen', 'testScreen', 'resultScreen'];
+            screens.forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
+    <script id="html_badge_script1">
+        window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDjGqS8wHb3ypXK7H7fgHE1lQaLcFRCuQwbIqwxtKvINlXZuGrWLq3bnam%2BMU1NRmSbQkmuNxnzCix5HQ4nbapOyhGlg0bBv5eJjBhJrhCzELry1mnvJF1je7MnnvtktMG1tkvCoePyMZQmf4QGwZdFBnhFpYREEwY%2BmLKJTXMYb6Xh%2FJehTT%2F996mH4bqKLqPvVx9ixuMj%2FPMhEAtC99SdvEilTyQkm7xOrSBEJ7okC8hjHX1hshllt%2BxZNNAxb3RYnLWZpwVHyFH2n7e9meaZJNBLaNqxTXpK3lnzwXcethJXW6uVrYYMGaQ6L0mZx4mBAXtYgmqOVe5zPQ61SIxKkC9ZnRJEYOjkTb%2F1tra0YvyIWRqTdA0ktnBW4XfbhsbDQEuPtfqODH%2F2Jpz9SbC5r53%2B11X1NbChQKyKkC3KD%2F3LWi0ykPK6O5n2BVJ9Y5jbhAsh22vmIKMOYsywGVkS43uJfH%2BG2zvwvbSmQJZ5kNcENTeySAG3TUiPEW3AXgzx0qbhtvPOR%2BXL8jtl0CIiE%3D";
+        window.__genspark_locale = "ja-JP";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDjGqS8wHb3ypXK7H7fgHE1lQaLcFRCuQwbIqwxtKvINlXZuGrWLq3bnam+MU1NRmSbQkmuNxnzCix5HQ4nbapOyhGlg0bBv5eJjBhJrhCzELry1mnvJF1je7MnnvtktMG1tkvCoePyMZQmf4QGwZdFBnhFpYREEwY+mLKJTXMYb6Xh/JehTT/996mH4bqKLqPvVx9ixuMj/PMhEAtC99SdvEilTyQkm7xOrSBEJ7okC8hjHX1hshllt+xZNNAxb3RYnLWZpwVHyFH2n7e9meaZJNBLaNqxTXpK3lnzwXcethJXW6uVrYYMGaQ6L0mZx4mBAXtYgmqOVe5zPQ61SIxKkC9ZnRJEYOjkTb/1tra0YvyIWRqTdA0ktnBW4XfbhsbDQEuPtfqODH/2Jpz9SbC5r53+11X1NbChQKyKkC3KD/3LWi0ykPK6O5n2BVJ9Y5jbhAsh22vmIKMOYsywGVkS43uJfH+G2zvwvbSmQJZ5kNcENTeySAG3TUiPEW3AXgzx0qbhtvPOR+XL8jtl0CIiE=";
+    </script>
+    
+    <script id="html_notice_dialog_script" src="https://www.genspark.ai/notice_dialog.js"></script>
+    
